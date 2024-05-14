@@ -7,6 +7,7 @@
 Module.register("MMM-Strava-Last-Activity-Map", {
   baseUrl: "https://www.strava.com/api/v3/",
   tokenUrl: "https://www.strava.com/oauth/token?",
+  googleMapsApiUrl: "",
   accessTokenError: {},
   stravaStats: {
     totalDistance: 0,
@@ -18,10 +19,17 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
   // Module config defaults.
   defaults: {
-    clientId: "",
-    clientSecret: "",
-    refreshToken: "",
-    header: "Strava Week in Bike",
+    stravaClientId: "",
+    stravaClientSecret: "",
+    stravaRefreshToken: "",
+    googleMapsApiKey: "",
+    lat: "",
+    lng: "",
+    zoom: 10,
+    mapTypeId: "roadmap",
+    styledMapType: "standard",
+    disableDefaultUI: true,
+    header: "Last Activity on Strava",
     numberOfDaysToQuery: 7,
     maxWidth: "250px",
     initialLoadDelay: 4250,
@@ -39,9 +47,15 @@ Module.register("MMM-Strava-Last-Activity-Map", {
   },
 
   start: function () {
+    var self = this;
     Log.info("Starting module: " + this.name);
     this.stravaStats = {};
     this.scheduleUpdate();
+
+    if (this.config.googleMapsApiKey === "") {
+      Log.error("MMM-GoogleMapsTraffic: key not set!");
+      return;
+    }
   },
 
   scheduleUpdate: function () {
@@ -74,6 +88,78 @@ Module.register("MMM-Strava-Last-Activity-Map", {
     this.sendSocketNotification("GET_LAST_STRAVA_ACTIVITY", payload);
   },
 
+  getDom: function () {
+    var lat = this.config.lat;
+    var lng = this.config.lng;
+
+    var wrapper = document.createElement("div");
+    wrapper.setAttribute("id", "map");
+
+    wrapper.style.height = this.config.height;
+    wrapper.style.width = this.config.width;
+
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = ((g) => {
+      var h,
+        a,
+        k,
+        p = "The Google Maps JavaScript API",
+        c = "google",
+        l = "importLibrary",
+        q = "__ib__",
+        m = document,
+        b = window;
+      b = b[c] || (b[c] = {});
+      var d = b.maps || (b.maps = {}),
+        r = new Set(),
+        e = new URLSearchParams(),
+        u = () =>
+          h ||
+          (h = new Promise(async (f, n) => {
+            await (a = m.createElement("script"));
+            e.set("libraries", [...r] + "");
+            for (k in g)
+              e.set(
+                k.replace(/[A-Z]/g, (t) => "_" + t[0].toLowerCase()),
+                g[k]
+              );
+            e.set("callback", c + ".maps." + q);
+            a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+            d[q] = f;
+            a.onerror = () => (h = n(Error(p + " could not load.")));
+            a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+            m.head.append(a);
+          }));
+      d[l]
+        ? console.warn(p + " only loads once. Ignoring:", g)
+        : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)));
+    })({
+      key: this.config.googleMapsApiKey,
+      v: "weekly",
+      // Use the 'v' parameter to indicate the version to use (weekly, beta, alpha, etc.).
+      // Add other bootstrap parameters as needed, using camel case.
+    });
+    document.body.appendChild(script);
+
+    var self = this;
+
+    script.onload = function () {
+      let map;
+      // initMap is now async
+      async function initMap() {
+        // Request libraries when needed, not in the script tag.
+        const { Map } = await google.maps.importLibrary("maps");
+        // Short namespaces can be used.
+        map = new Map(document.getElementById("map"), {
+          center: { lat: -34.397, lng: 150.644 },
+          zoom: 8,
+        });
+      }
+
+      initMap();
+    };
+  },
   // this gets data from node_helper
   socketNotificationReceived: function (notification, payload) {
     if (notification === "ACCESS_TOKEN_ERROR") {
