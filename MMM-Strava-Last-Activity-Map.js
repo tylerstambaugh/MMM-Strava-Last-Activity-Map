@@ -9,13 +9,14 @@ Module.register("MMM-Strava-Last-Activity-Map", {
   tokenUrl: "https://www.strava.com/oauth/token?",
   googleMapsApiUrl: "",
   accessTokenError: {},
-  stravaStats: {
+  stravaData: {
     totalDistance: 0,
     totalMinutes: 0,
     minutes: 0,
     hours: 0,
     totalElevation: 0,
   },
+  googleMap: null,
 
   // Module config defaults.
   defaults: {
@@ -23,8 +24,6 @@ Module.register("MMM-Strava-Last-Activity-Map", {
     stravaClientSecret: "",
     stravaRefreshToken: "",
     googleMapsApiKey: "",
-    lat: "",
-    lng: "",
     zoom: 10,
     mapTypeId: "roadmap",
     styledMapType: "standard",
@@ -39,7 +38,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
   },
 
   init: function () {
-    this.stravaStats = {};
+    this.stravaData = {};
   },
 
   getHeader: function () {
@@ -49,7 +48,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
   start: function () {
     var self = this;
     Log.info("Starting module: " + this.name);
-    this.stravaStats = {};
+    this.stravaData = {};
     this.scheduleUpdate();
 
     if (this.config.googleMapsApiKey === "") {
@@ -60,9 +59,9 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
   scheduleUpdate: function () {
     setInterval(() => {
-      //this.getStravaStats();
+      this.getLastStravaActivity();
     }, this.config.updateInterval);
-    this.getStravaStats(this.config.initialLoadDelay);
+    this.getLastStravaActivity(this.config.initialLoadDelay);
     var self = this;
   },
 
@@ -75,10 +74,9 @@ Module.register("MMM-Strava-Last-Activity-Map", {
       clientId: this.config.clientId,
       clientSecret: this.config.clientSecret,
       refreshToken: this.config.refreshToken,
-      numberOfDaysToQuery: this.config.numberOfDaysToQuery,
       after: Math.floor(
         new Date(
-          Date.now() - this.config.numberOfDaysToQuery * 24 * 60 * 60 * 1000
+          Date.now() - 10 * 24 * 60 * 60 * 1000
         ).getTime() / 1000
       ),
       before: Math.floor(
@@ -88,16 +86,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
     this.sendSocketNotification("GET_LAST_STRAVA_ACTIVITY", payload);
   },
 
-  getDom: function () {
-    var lat = this.config.lat;
-    var lng = this.config.lng;
-
-    var wrapper = document.createElement("div");
-    wrapper.setAttribute("id", "map");
-
-    wrapper.style.height = this.config.height;
-    wrapper.style.width = this.config.width;
-
+  getGoogleMap: function () {
     var script = document.createElement("script");
     script.type = "text/javascript";
     script.src = ((g) => {
@@ -137,12 +126,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
     })({
       key: this.config.googleMapsApiKey,
       v: "weekly",
-      // Use the 'v' parameter to indicate the version to use (weekly, beta, alpha, etc.).
-      // Add other bootstrap parameters as needed, using camel case.
     });
     document.body.appendChild(script);
 
-    var self = this;
+    //var self = this;
 
     script.onload = function () {
       let map;
@@ -152,7 +139,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         const { Map } = await google.maps.importLibrary("maps");
         // Short namespaces can be used.
         map = new Map(document.getElementById("map"), {
-          center: { lat: -34.397, lng: 150.644 },
+          center: { lat:this.stravaData., lng: 150.644 },
           zoom: 8,
         });
       }
@@ -160,6 +147,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
       initMap();
     };
   },
+
   // this gets data from node_helper
   socketNotificationReceived: function (notification, payload) {
     if (notification === "ACCESS_TOKEN_ERROR") {
@@ -183,6 +171,13 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
   getTemplateData() {
     return {
+      time: `${Math.floor(this.stravaStats.totalMinutes / 60)} hours ${
+        this.stravaStats.totalMinutes % 60
+      } minutes`,
+      distance: this.stravaStats.totalDistance,
+      date: "12/12/2025",
+      accessTokenError: this.accessTokenError,
+      loading: this.loading,
       //   numberOfDaysToQuery: this.config.numberOfDaysToQuery,
       //   numberOfRides: this.stravaStats.numberOfRides,
       //   distance: this.stravaStats.totalDistance,
