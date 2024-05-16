@@ -44,6 +44,7 @@ module.exports = NodeHelper.create({
   },
 
   processData: function (data) {
+    let activityDate;
     let distance = 0;
     let minutes = 0;
     let latitude;
@@ -53,20 +54,29 @@ module.exports = NodeHelper.create({
       if (data.length > 0) {
         let activity = data[0];
 
+        let date = new Date(activity.start_date);
+
+        let month = String(date.getUTCMonth() + 1).padStart(2, "0"); // Months are zero-indexed, so add 1
+        let day = String(date.getUTCDate()).padStart(2, "0");
+        let year = date.getUTCFullYear();
+
+        activityDate = `${month}/${day}/${year}`;
+
         distance = Math.floor(activity.distance * 0.000621371);
         minutes = Math.floor(activity.moving_time / 60);
-        (latitude = activity.startLatLng[0]),
-          (longitude = activity.startLatLng[1]),
-          (summaryPolyLine = activity.map.summaryPolyLine);
+        (latitude = activity.start_latlng[0]),
+          (longitude = activity.start_latlng[1]),
+          (summaryPolyLine = activity.map.summary_polyline);
       }
     }
 
     return {
+      activityDate: activityDate,
       distance: distance,
       minutes: minutes % 60,
       hours: Math.floor(minutes / 60),
       latitude: latitude,
-      longitute: longitute,
+      longitute: longitude,
       summaryPolyLine: summaryPolyLine,
     };
   },
@@ -198,7 +208,7 @@ module.exports = NodeHelper.create({
   },
 
   socketNotificationReceived: function (notification, payload) {
-    if (notification === "GET_STRAVA_DATA") {
+    if (notification === "GET_DATA") {
       this.getStravaData(payload);
     }
   },

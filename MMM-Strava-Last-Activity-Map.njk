@@ -1,0 +1,20 @@
+
+{% if loading %}
+    <div class="small dimmed light">
+        {{ "LOADING" | translate | safe }}
+        <p>loading... </p>
+    </div>
+{% else %}
+ 
+<div class="wrapper">
+    {% if accessTokenError | length > 0 %}
+        <div>
+        Error getting token. </br> Check the logs for more information. 
+        </div>
+    {% endif %}
+
+{{ map }}
+    <div>
+        <p> Date: {{activityDAte}}</p>
+    </div>
+    </div>
