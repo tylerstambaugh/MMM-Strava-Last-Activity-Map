@@ -4,6 +4,7 @@
  * By Tyler Stambaugh
  */
 
+//worked on configuring MM, no code today.
 Module.register("MMM-Strava-Last-Activity-Map", {
   baseUrl: "https://www.strava.com/api/v3/",
   tokenUrl: "https://www.strava.com/oauth/token?",
