@@ -133,6 +133,9 @@ module.exports = NodeHelper.create({
 
 	socketNotificationReceived (notification, payload) {
 		if (notification === "GET_STRAVA_DATA") {
+			console.error(
+				"GET STRAVA DATA socknotification received by node helper"
+			);
 			this.getStravaData(payload);
 		}
 	}
