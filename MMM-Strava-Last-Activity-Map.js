@@ -58,27 +58,12 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			// Add the Google Maps API script
 			const googleMapsScript = document.createElement("script");
 			googleMapsScript.type = "text/javascript";
-			googleMapsScript.innerHTML = `
-				(g => {
-					var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
-					b = b[c] || (b[c] = {});
-					var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => {
-						await (a = m.createElement("script"));
-						e.set("libraries", [...r] + "");
-						for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
-						e.set("callback", c + ".maps." + q);
-						a.src = \`https://maps.\${c}apis.com/maps/api/js?\` + e;
-						d[q] = f;
-						a.onerror = () => h = n(Error(p + " could not load."));
-						a.nonce = m.querySelector("script[nonce]")?.nonce || "";
-						m.head.append(a)
-					}));
-					d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n))
-				})({
-					key: "${this.config.googleMapsApiKey}",
-					v: "weekly"
-				});
-			`;
+			googleMapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
+			googleMapsScript.async = true;
+			googleMapsScript.defer = true;
+			window.initMap = function () {
+				self.initializeMap();
+			};
 			document.head.appendChild(googleMapsScript);
 		}
 	},
@@ -103,53 +88,70 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		wrapper.style.height = this.config.height;
 		wrapper.style.width = this.config.width;
 
-		var self = this;
-
-		const initializeMap = () => {
-			if (typeof google === "undefined" || typeof google.maps === "undefined") {
-				setTimeout(initializeMap, 100);
-				return;
-			}
-
-			var map = new google.maps.Map(document.getElementById("map"), {
-				zoom: self.config.zoom,
-				mapTypeId: self.config.mapTypeId,
-				center: {
-					lat: self.config.lat,
-					lng: self.config.lng
-				},
-				styles: self.styledMapType,
-				disableDefaultUI: self.config.disableDefaultUI,
-				backgroundColor: self.config.backgroundColor
-			});
-
-			var trafficLayer = new google.maps.TrafficLayer();
-			trafficLayer.setMap(map);
-
-			for (var i = 0; i < self.config.markers.length; i++) {
-				var marker = self.config.markers[i];
-				var markerOptions = {
-					map: map,
-					position: {
-						lat: marker.lat,
-						lng: marker.lng
-					}
-				};
-				markerOptions.icon = {
-					path: "M11 2c-3.9 0-7 3.1-7 7 0 5.3 7 13 7 13 0 0 7-7.7 7-13 0-3.9-3.1-7-7-7Zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5 0-1.4 1.1-2.5 2.5-2.5 1.4 0 2.5 1.1 2.5 2.5 0 1.4-1.1 2.5-2.5 2.5Z",
-					scale: 1,
-					anchor: new google.maps.Point(11, 22),
-					fillOpacity: 1,
-					fillColor: marker.fillColor,
-					strokeOpacity: 0
-				};
-				var markerLayer = new google.maps.Marker(markerOptions);
-			}
-		};
-
-		initializeMap();
-
 		return wrapper;
+	},
+
+	initializeMap () {
+		var self = this;
+		if (typeof google === "undefined" || typeof google.maps === "undefined") {
+			setTimeout(() => { self.initializeMap(); }, 100);
+			return;
+		}
+
+		const position = { lat: -25.344, lng: 131.031 };
+		const map = new google.maps.Map(document.getElementById("map"), {
+			zoom: self.config.zoom,
+			center: { lat: self.config.lat, lng: self.config.lng },
+			mapTypeId: self.config.mapTypeId,
+			styles: self.styledMapType,
+			disableDefaultUI: self.config.disableDefaultUI,
+			backgroundColor: self.config.backgroundColor
+		});
+
+		const decodedPath = self.decodePolyline(self.apiData.summaryPolyLine);
+		const polyline = new google.maps.Polyline({
+			path: decodedPath,
+			geodesic: true,
+			strokeColor: "#FF0000",
+			strokeOpacity: 1.0,
+			strokeWeight: 2
+		});
+		polyline.setMap(map);
+	},
+
+	decodePolyline (encoded) {
+		let points = [];
+		let index = 0,
+			len = encoded.length;
+		let lat = 0,
+			lng = 0;
+
+		while (index < len) {
+			let b,
+				shift = 0,
+				result = 0;
+			do {
+				b = encoded.charAt(index++).charCodeAt(0) - 63;
+				result |= (b & 0x1f) << shift;
+				shift += 5;
+			} while (b >= 0x20);
+			let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+			lat += dlat;
+
+			shift = 0;
+			result = 0;
+			do {
+				b = encoded.charAt(index++).charCodeAt(0) - 63;
+				result |= (b & 0x1f) << shift;
+				shift += 5;
+			} while (b >= 0x20);
+			let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+			lng += dlng;
+
+			points.push({ lat: (lat / 1e5), lng: (lng / 1e5) });
+		}
+
+		return points;
 	},
 
 
@@ -167,13 +169,16 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 				new Date(Date.now() - 1 * 2 * 60 * 60 * 1000).getTime() / 1000
 			)
 		};
+		console.error(
+			"Sending request to node helper to get strava data"
+		);
 		this.sendSocketNotification("GET_STRAVA_DATA", payload);
 	},
 
 	// this gets data from node_helper
 	socketNotificationReceived (notification, payload) {
 		if (notification === "ACCESS_TOKEN_ERROR") {
-			this.accessTokenError(payload);
+			this.accessTokenError = payload;
 		}
 		if (notification === "STRAVA_DATA_RESULT") {
 			this.loading = true;
