@@ -13,129 +13,89 @@ module.exports = NodeHelper.create({
 
 	async getAccessToken (payload) {
 		try {
-			let url
-        = `${payload.tokenUrl}
-        client_id= ${payload.clientId}
-        &client_secret=${payload.clientSecret}
-        &refresh_token=${payload.refreshToken}
-        &grant_type=refresh_token`;
-			await axios.post(url).then((response) => {
-				try {
-					const filePath = path.join(__dirname, "access_token.json");
-					fs.writeFileSync(filePath, JSON.stringify(response.data));
-				} catch (error) {
-					Log.info(
-						"MMM-Strava-Last-Activity-Map Error writing to file access_token.json:",
-						error
-					);
-				}
-				this.accessTokenData = response.data;
-			});
+			const url = `${payload.tokenUrl}client_id=${payload.clientId}&client_secret=${payload.clientSecret}&refresh_token=${payload.refreshToken}&grant_type=refresh_token`;
+			const response = await axios.post(url);
+			const filePath = path.join(__dirname, "access_token.json");
+
+			try {
+				fs.writeFileSync(filePath, JSON.stringify(response.data));
+			} catch (error) {
+				console.error("Error writing to file access_token.json:", error);
+			}
+
+			this.accessTokenData = response.data;
 		} catch (error) {
-			console.error(
-				"MMM-Strava-Strava-Last-Activity-Map - Access token Error fetching data from API:",
-				error
-			);
+			console.error("Error fetching access token from API:", error);
 			this.sendSocketNotification("ACCESS_TOKEN_ERROR", error);
 		}
 	},
 
 	processData (data) {
-		let activityDate;
-		let distance = 0;
-		let minutes = 0;
-		let latitude;
-		let longitude;
-		let summaryPolyLine;
-		if (data instanceof Array) {
-			if (data.length > 0) {
-				let activity = data[0];
+		console.error("Processing data");
+		let activityDate, distance, minutes, latitude, longitude, summaryPolyLine;
 
-				let date = new Date(activity.start_date);
+		if (Array.isArray(data) && data.length > 0) {
+			const activity = data[0];
+			const date = new Date(activity.start_date);
 
-				let month = String(date.getUTCMonth() + 1).padStart(2, "0"); // Months are zero-indexed, so add 1
-				let day = String(date.getUTCDate()).padStart(2, "0");
-				let year = date.getUTCFullYear();
+			const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+			const day = String(date.getUTCDate()).padStart(2, "0");
+			const year = date.getUTCFullYear();
 
-				activityDate = `${month}/${day}/${year}`;
-
-				distance = Math.floor(activity.distance * 0.000621371);
-				minutes = Math.floor(activity.moving_time / 60);
-				(latitude = activity.start_latlng[0]),
-				(longitude = activity.start_latlng[1]),
-				(summaryPolyLine = activity.map.summary_polyline);
-			}
+			activityDate = `${month}/${day}/${year}`;
+			distance = Math.floor(activity.distance * 0.000621371); // Convert meters to miles
+			minutes = Math.floor(activity.moving_time / 60);
+			latitude = activity.start_latlng[0];
+			longitude = activity.start_latlng[1];
+			summaryPolyLine = activity.map.summary_polyline;
 		}
 
 		return {
-			activityDate: activityDate,
-			distance: distance,
+			activityDate,
+			distance,
 			minutes: minutes % 60,
 			hours: Math.floor(minutes / 60),
-			latitude: latitude,
-			longitute: longitude,
-			summaryPolyLine: summaryPolyLine
+			latitude,
+			longitude,
+			summaryPolyLine
 		};
 	},
 
 	async getStravaData (payload) {
+		console.error("Fetching Strava data");
 		const filePath = path.join(__dirname, "access_token.json");
-		let localAccessTokenData = {};
+
 		try {
 			if (fs.existsSync(filePath)) {
-				let localAccessTokenFileData = await fs.promises.readFile(filePath);
-				try {
-					localAccessTokenData = JSON.parse(localAccessTokenFileData);
-					if (
-						localAccessTokenData.access_token
-						&& localAccessTokenData.expires_at < Math.floor(Date.now() / 1000)
-					) {
-						this.accessTokenData = localAccessTokenData;
-					} else {
-						await this.getAccessToken({
-							...payload,
-							refreshToken: localAccessTokenData.refresh_token
-						});
-					}
-				} catch (parseError) {
-					await this.getAccessToken(payload);
+				const localAccessTokenFileData = await fs.promises.readFile(filePath);
+				const localAccessTokenData = JSON.parse(localAccessTokenFileData);
+
+				if (localAccessTokenData.access_token && localAccessTokenData.expires_at > Math.floor(Date.now() / 1000)) {
+					this.accessTokenData = localAccessTokenData;
+				} else {
+					await this.getAccessToken({ ...payload, refreshToken: localAccessTokenData.refresh_token });
 				}
 			} else {
 				await this.getAccessToken(payload);
 			}
 
-			let url
-        = `${payload.url}athlete/activities?
-        before=${payload.before}
-        &after=${payload.after}`;
-
-			await axios
-				.get(url, {
-					headers: {
-						Authorization: `Bearer ${this.accessTokenData.access_token}`
-					}
-				})
-				.then((response) => {
-					const processedData = this.processData(response.data);
-				})
-				.then((data) => {
-					this.sendSocketNotification("STRAVA_STATS_RESULTS", data);
-				});
+			const url = `${payload.url}athlete/activities?before=${payload.before}&after=${payload.after}`;
+			const response = await axios.get(url, {
+				headers: {
+					Authorization: `Bearer ${this.accessTokenData.access_token}`
+				}
+			});
+			console.error("strava activity response", response.data);
+			const processedData = this.processData(response.data);
+			this.sendSocketNotification("STRAVA_DATA_RESULT", processedData);
 		} catch (error) {
-			console.error(
-				"MMM-Strav-Last-Activity-Map - Node helper getStravaStats - Error fetching data from API:",
-				error
-			);
-			return null;
+			Log.error("Error fetching data from Strava API:", error);
 		}
 	},
 
-
 	socketNotificationReceived (notification, payload) {
 		if (notification === "GET_STRAVA_DATA") {
-			console.error(
-				"GET STRAVA DATA socknotification received by node helper"
-			);
+			console.error("Socket notification received: GET_STRAVA_DATA");
 			this.getStravaData(payload);
 		}
 	}

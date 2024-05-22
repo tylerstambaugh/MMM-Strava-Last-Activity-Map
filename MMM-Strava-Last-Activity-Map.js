@@ -16,6 +16,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		distance: 0,
 		minutes: 0,
 		hours: 0,
+		latitude: -25.344,
+		longitude: 131.031,
 		summaryPolyLine: ""
 	},
 
@@ -32,14 +34,13 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		header: "Last Activity on Strava",
 		numberOfDaysToQuery: 7,
 		maxWidth: "250px",
-		initialLoadDelay: 4250,
+		initialLoadDelay: 1000,
 		retryDelay: 2500,
 		updateInterval: 60 * 15 * 1000,
 		loading: true
 	},
 
 	init () {
-		this.apiData = {};
 	},
 
 	getHeader () {
@@ -47,41 +48,21 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 	},
 
 	start () {
-		var self = this;
 		Log.info(`Starting module: ${this.name}`);
 		this.apiData = {};
 		this.scheduleUpdate();
-
-		if (this.config.googleMapsApiKey === "") {
-			Log.error("MMM-Strava-Last-Activity-Map: Google Maps API key not set!");
-		} else {
-			// Add the Google Maps API script
-			const googleMapsScript = document.createElement("script");
-			googleMapsScript.type = "text/javascript";
-			googleMapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
-			googleMapsScript.async = true;
-			googleMapsScript.defer = true;
-			window.initMap = function () {
-				self.initializeMap();
-			};
-			document.head.appendChild(googleMapsScript);
-		}
 	},
 
 	scheduleUpdate () {
 		setInterval(() => {
 			this.getApiData();
 		}, this.config.updateInterval);
-		this.getApiData(this.config.initialLoadDelay);
-		var self = this;
+		this.getApiData();
 	},
 
 	notificationReceived () {},
 
 	getDom () {
-		var lat = this.config.lat;
-		var lng = this.config.lng;
-
 		var wrapper = document.createElement("div");
 		wrapper.setAttribute("id", "map");
 
@@ -92,23 +73,21 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 	},
 
 	initializeMap () {
-		var self = this;
 		if (typeof google === "undefined" || typeof google.maps === "undefined") {
-			setTimeout(() => { self.initializeMap(); }, 100);
+			setTimeout(() => { this.initializeMap(); }, 100);
 			return;
 		}
 
-		const position = { lat: -25.344, lng: 131.031 };
 		const map = new google.maps.Map(document.getElementById("map"), {
-			zoom: self.config.zoom,
-			center: { lat: self.config.lat, lng: self.config.lng },
-			mapTypeId: self.config.mapTypeId,
-			styles: self.styledMapType,
-			disableDefaultUI: self.config.disableDefaultUI,
-			backgroundColor: self.config.backgroundColor
+			zoom: this.config.zoom,
+			center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
+			mapTypeId: this.config.mapTypeId,
+			styles: this.styledMapType,
+			disableDefaultUI: this.config.disableDefaultUI,
+			backgroundColor: this.config.backgroundColor
 		});
 
-		const decodedPath = self.decodePolyline(self.apiData.summaryPolyLine);
+		const decodedPath = this.decodePolyline(this.apiData.summaryPolyLine);
 		const polyline = new google.maps.Polyline({
 			path: decodedPath,
 			geodesic: true,
@@ -154,14 +133,13 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		return points;
 	},
 
-
 	getApiData () {
 		let payload = {
 			url: this.baseUrl,
 			tokenUrl: this.tokenUrl,
-			clientId: this.config.clientId,
-			clientSecret: this.config.clientSecret,
-			refreshToken: this.config.refreshToken,
+			clientId: this.config.stravaClientId,
+			clientSecret: this.config.stravaClientSecret,
+			refreshToken: this.config.stravaRefreshToken,
 			after: Math.floor(
 				new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).getTime() / 1000
 			),
@@ -169,13 +147,9 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 				new Date(Date.now() - 1 * 2 * 60 * 60 * 1000).getTime() / 1000
 			)
 		};
-		console.error(
-			"Sending request to node helper to get strava data"
-		);
 		this.sendSocketNotification("GET_STRAVA_DATA", payload);
 	},
 
-	// this gets data from node_helper
 	socketNotificationReceived (notification, payload) {
 		if (notification === "ACCESS_TOKEN_ERROR") {
 			this.accessTokenError = payload;
@@ -184,27 +158,26 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			this.loading = true;
 			this.apiData = payload;
 			this.loading = false;
+			this.loadGoogleMapsScript();
 			this.updateDom();
 		}
 	},
 
+	loadGoogleMapsScript () {
+		if (this.config.googleMapsApiKey === "") {
+			Log.error("MMM-Strava-Last-Activity-Map: Google Maps API key not set!");
+		} else {
+			const googleMapsScript = document.createElement("script");
+			googleMapsScript.type = "text/javascript";
+			googleMapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
+			googleMapsScript.async = true;
+			googleMapsScript.defer = true;
+			window.initMap = this.initializeMap.bind(this);
+			document.head.appendChild(googleMapsScript);
+		}
+	},
+
 	getStyles () {
-		return ["font-awesome.css", "MMM-Strava-Last-Activity-Map.css"];
+		return ["MMM-Strava-Last-Activity-Map.css"];
 	}
-
-	// getTemplate () {
-	// 	return "MMM-Strava-Last-Activity-Map.njk";
-	// },
-
-	// getTemplateData () {
-	// 	return {
-	// 		activityDate: this.apiData.activityDate,
-	// 		hours: this.apiData.hours,
-	// 		minutes: this.apiData.minutes,
-	// 		distance: this.apiData.distance,
-	// 		summaryPolyLine: this.apiData.summaryPolyLine,
-	// 		accessTokenError: this.accessTokenError,
-	// 		loading: this.loading
-	// 	};
-	// }
 });
