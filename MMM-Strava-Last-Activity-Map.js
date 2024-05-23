@@ -49,6 +49,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
 	start () {
 		Log.info(`Starting module: ${this.name}`);
+		this.sendSocketNotification("LOG", `Starting node_helper for: ${this.name}`);
+
 		this.apiData = {};
 		this.scheduleUpdate();
 	},
@@ -66,9 +68,16 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		var wrapper = document.createElement("div");
 		wrapper.setAttribute("id", "map");
 
-		wrapper.style.height = this.config.height;
-		wrapper.style.width = this.config.width;
-
+		if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
+			var errorWrapper = document.createElement("div");
+			errorWrapper.className = "small bright";
+			errorWrapper.innerHTML = `Error fetching access token: ${JSON.stringify(this.accessTokenError)}`;
+			wrapper.appendChild(errorWrapper);
+		} else {
+			// Otherwise, display the map
+			wrapper.style.height = this.config.height;
+			wrapper.style.width = this.config.width;
+		}
 		return wrapper;
 	},
 
@@ -151,15 +160,20 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 	},
 
 	socketNotificationReceived (notification, payload) {
-		if (notification === "ACCESS_TOKEN_ERROR") {
-			this.accessTokenError = payload;
-		}
-		if (notification === "STRAVA_DATA_RESULT") {
-			this.loading = true;
-			this.apiData = payload;
-			this.loading = false;
-			this.loadGoogleMapsScript();
-			this.updateDom();
+		if (notification === "LOG") {
+			Log.info("NodeHelper log:", payload);
+			if (notification === "ACCESS_TOKEN_ERROR") {
+				this.accessTokenError = payload;
+				this.updateDom();
+			}
+			if (notification === "STRAVA_DATA_RESULT") {
+				this.loading = true;
+				this.apiData = payload;
+				console.log("strava api response data in socketNotificationReceived:", this.apiData);
+				this.loading = false;
+				this.loadGoogleMapsScript();
+				this.updateDom();
+			}
 		}
 	},
 

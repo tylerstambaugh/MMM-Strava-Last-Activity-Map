@@ -1,5 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
+const { Console } = require("node:console");
 const NodeHelper = require("node_helper");
 const axios = require("axios");
 const Log = require("logger");
@@ -20,21 +21,22 @@ module.exports = NodeHelper.create({
 			try {
 				fs.writeFileSync(filePath, JSON.stringify(response.data));
 			} catch (error) {
-				console.error("Error writing to file access_token.json:", error);
+				this.sendSocketNotification("LOG", `Error writing to file access_token.json: ${error}`);
 			}
 
 			this.accessTokenData = response.data;
 		} catch (error) {
-			console.error("Error fetching access token from API:", error);
+			this.sendSocketNotification("LOG", `Error fetching access token from API: ${error}`);
 			this.sendSocketNotification("ACCESS_TOKEN_ERROR", error);
 		}
 	},
 
 	processData (data) {
-		console.error("Processing data");
+		Console.log("Processing data");
 		let activityDate, distance, minutes, latitude, longitude, summaryPolyLine;
 
 		if (Array.isArray(data) && data.length > 0) {
+			this.sendSocketNotification("LOG", `response data count: ${data.length}`);
 			const activity = data[0];
 			const date = new Date(activity.start_date);
 
@@ -62,7 +64,7 @@ module.exports = NodeHelper.create({
 	},
 
 	async getStravaData (payload) {
-		console.error("Fetching Strava data");
+		this.sendSocketNotification("LOG", "Fetching Strava data");
 		const filePath = path.join(__dirname, "access_token.json");
 
 		try {
@@ -85,11 +87,12 @@ module.exports = NodeHelper.create({
 					Authorization: `Bearer ${this.accessTokenData.access_token}`
 				}
 			});
-			console.error("strava activity response", response.data);
+			this.sendSocketNotification(`strava activity response: ${response.data}`);
+			this.sendSocketNotification("LOG", `strava activity response: ${response.data}`);
 			const processedData = this.processData(response.data);
 			this.sendSocketNotification("STRAVA_DATA_RESULT", processedData);
 		} catch (error) {
-			Log.error("Error fetching data from Strava API:", error);
+			this.sendSocketNotification("LOG", `Error fetching data from Strava API: ${error}`);
 		}
 	},
 
