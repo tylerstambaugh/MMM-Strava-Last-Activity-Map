@@ -32,7 +32,6 @@ module.exports = NodeHelper.create({
 	},
 
 	processData (data) {
-		Console.log("Processing data");
 		let activityDate, distance, minutes, latitude, longitude, summaryPolyLine;
 
 		if (Array.isArray(data) && data.length > 0) {
@@ -87,9 +86,9 @@ module.exports = NodeHelper.create({
 					Authorization: `Bearer ${this.accessTokenData.access_token}`
 				}
 			});
-			this.sendSocketNotification(`strava activity response: ${response.data}`);
-			this.sendSocketNotification("LOG", `strava activity response: ${response.data}`);
+			this.sendSocketNotification("LOG", `strava activity response: ${JSON.stringify(response.data)}`);
 			const processedData = this.processData(response.data);
+			this.sendSocketNotification("LOG", `strava activity response post processing: ${JSON.stringify(processedData)}`);
 			this.sendSocketNotification("STRAVA_DATA_RESULT", processedData);
 		} catch (error) {
 			this.sendSocketNotification("LOG", `Error fetching data from Strava API: ${error}`);
