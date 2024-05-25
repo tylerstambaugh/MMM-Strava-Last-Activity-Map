@@ -23,23 +23,22 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
 	// Module config defaults.
 	defaults: {
-		stravaClientId: "",
-		stravaClientSecret: "",
-		stravaRefreshToken: "",
-		googleMapsApiKey: "",
+		// stravaClientId: "",
+		// stravaClientSecret: "",
+		// stravaRefreshToken: "",
+		// googleMapsApiKey: "",
 		zoom: 10,
 		mapTypeId: "roadmap",
 		styledMapType: "standard",
 		disableDefaultUI: true,
 		header: "Last Activity on Strava",
-		numberOfDaysToQuery: 7,
 		maxWidth: "250px",
 		initialLoadDelay: 1000,
 		retryDelay: 2500,
 		updateInterval: 60 * 15 * 1000,
 		loading: true,
-		width: "200px",
-		height: "200px"
+		width: "250px",
+		height: "250px"
 	},
 
 	init () {
@@ -65,10 +64,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 	},
 
 	notificationReceived () {},
-
 	getDom () {
 		var wrapper = document.createElement("div");
-		wrapper.setAttribute("id", "map");
 
 		if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
 			var errorWrapper = document.createElement("div");
@@ -76,10 +73,6 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			errorWrapper.innerHTML = `Error fetching access token: ${JSON.stringify(this.accessTokenError)}`;
 			wrapper.appendChild(errorWrapper);
 		} else {
-			// Display the map
-			wrapper.style.height = this.config.height;
-			wrapper.style.width = this.config.width;
-
 			// Display activity details below the map
 			var detailsWrapper = document.createElement("div");
 			detailsWrapper.className = "small bright";
@@ -89,6 +82,15 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			`;
 			wrapper.appendChild(detailsWrapper);
 		}
+		var mapContainer = document.createElement("div");
+		mapContainer.setAttribute("id", "map");
+		mapContainer.style.height = `${this.config.height}`;
+		mapContainer.style.width = `${this.config.width}`;
+
+		wrapper.appendChild(mapContainer);
+
+
+		this.initializeMap();
 
 		return wrapper;
 	},
@@ -117,6 +119,19 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			strokeWeight: 2
 		});
 		polyline.setMap(map);
+
+		// Calculate bounds of the polyline
+		const bounds = new google.maps.LatLngBounds();
+		decodedPath.forEach((point) => {
+			bounds.extend(new google.maps.LatLng(point.lat, point.lng));
+		});
+
+		// Fit the map to the polyline bounds
+		map.fitBounds(bounds);
+
+		google.maps.event.addListenerOnce(map, "bounds_changed", () => {
+			map.setZoom(map.getZoom() + 1);
+		});
 	},
 
 	decodePolyline (encoded) {
@@ -173,7 +188,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
 	socketNotificationReceived (notification, payload) {
 		if (notification === "LOG") {
-			Log.info("NodeHelper log:", payload);
+			Log.info("STRAVA-LAST-ACTIVITY-MAP NodeHelper log:", payload);
 		}
 		if (notification === "ACCESS_TOKEN_ERROR") {
 			this.accessTokenError = payload;
@@ -182,7 +197,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		if (notification === "STRAVA_DATA_RESULT") {
 			this.loading = true;
 			this.apiData = payload;
-			Log.info("strava api response data in socketNotificationReceived:", this.apiData);
+			Log.info("LAST-ACTIVITY-MAP: Strava API response data in socketNotificationReceived:", this.apiData);
 			this.loading = false;
 			this.loadGoogleMapsScript();
 			this.updateDom();
