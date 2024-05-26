@@ -9,7 +9,6 @@
 Module.register("MMM-Strava-Last-Activity-Map", {
 	baseUrl: "https://www.strava.com/api/v3/",
 	tokenUrl: "https://www.strava.com/oauth/token?",
-	googleMapsApiUrl: "",
 	accessTokenError: {},
 	apiData: {
 		title: "",
@@ -21,6 +20,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		longitude: 131.031,
 		summaryPolyLine: ""
 	},
+	loading: true,
 
 	// Module config defaults.
 	defaults: {
@@ -32,7 +32,6 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		initialLoadDelay: 1000,
 		retryDelay: 2500,
 		updateInterval: 60 * 15 * 1000,
-		loading: true,
 		width: "250px",
 		height: "250px"
 	},
@@ -62,33 +61,49 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 	notificationReceived () {},
 	getDom () {
 		var wrapper = document.createElement("div");
+		wrapper.className = "wrapper";
 
-		if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
-			var errorWrapper = document.createElement("div");
-			errorWrapper.className = "small bright";
-			errorWrapper.innerHTML = `Error fetching access token: ${JSON.stringify(this.accessTokenError)}`;
-			wrapper.appendChild(errorWrapper);
+		if (this.loading) {
+			var loadingMessage = document.createElement("div");
+			loadingMessage.className = "loading";
+			loadingMessage.innerHTML = "Module Loading...";
+			wrapper.appendChild(loadingMessage);
 		} else {
-			// Display activity details below the map
-			var detailsWrapper = document.createElement("div");
-			detailsWrapper.className = "small bright";
-			detailsWrapper.innerHTML = `
+			if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
+				var errorWrapper = document.createElement("div");
+				errorWrapper.className = "small bright";
+				errorWrapper.innerHTML = `Strava API Access Token Error: ${JSON.stringify(this.accessTokenError)}`;
+				wrapper.appendChild(errorWrapper);
+			} else {
+				var detailsWrapper = document.createElement("div");
+				detailsWrapper.className = "small bright activityDetails";
+				detailsWrapper.innerHTML = `
 				<p>${this.apiData.name} - ${this.apiData.activityDate}</p>
-				<p>Distance: <span classname="value">${this.apiData.distance} </span>miles</p>
-				<p>Time: <span classname="value">${this.apiData.hours} </span> hours  <span classname="value">${this.apiData.minutes} </span> minutes</p>
 			`;
-			wrapper.appendChild(detailsWrapper);
+				wrapper.appendChild(detailsWrapper);
+			}
+			var mapContainerWrapper = document.createElement("div");
+			mapContainerWrapper.className = "map-container-wrapper";
+
+			var mapContainer = document.createElement("div");
+			mapContainer.className = "map";
+			mapContainer.setAttribute("id", "map");
+			mapContainer.style.height = `${this.config.height}`;
+			mapContainer.style.width = `${this.config.width}`;
+
+			mapContainerWrapper.appendChild(mapContainer);
+			wrapper.appendChild(mapContainerWrapper);
+
+			var detailsWrapper2 = document.createElement("div");
+			detailsWrapper2.className = "small bright activityDetails";
+			detailsWrapper2.innerHTML = `
+				<p><span class="value">${this.apiData.distance} </span>miles | <span class="value">${this.apiData.hours} </span> hours  <span class="value">${this.apiData.minutes} </span> minutes</p>
+			`;
+			wrapper.appendChild(detailsWrapper2);
+
+
+			this.initializeMap();
 		}
-		var mapContainer = document.createElement("div");
-		mapContainer.setAttribute("id", "map");
-		mapContainer.style.height = `${this.config.height}`;
-		mapContainer.style.width = `${this.config.width}`;
-
-		wrapper.appendChild(mapContainer);
-
-
-		this.initializeMap();
-
 		return wrapper;
 	},
 
@@ -117,13 +132,11 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		});
 		polyline.setMap(map);
 
-		// Calculate bounds of the polyline
 		const bounds = new google.maps.LatLngBounds();
 		decodedPath.forEach((point) => {
 			bounds.extend(new google.maps.LatLng(point.lat, point.lng));
 		});
 
-		// Fit the map to the polyline bounds
 		map.fitBounds(bounds);
 
 		google.maps.event.addListenerOnce(map, "bounds_changed", () => {
@@ -192,11 +205,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			this.updateDom();
 		}
 		if (notification === "STRAVA_DATA_RESULT") {
-			this.loading = true;
 			this.apiData = payload;
 			Log.info("LAST-ACTIVITY-MAP: Strava API response data in socketNotificationReceived:", this.apiData);
-			this.loading = false;
 			this.loadGoogleMapsScript();
+			this.loading = false;
 			this.updateDom();
 		}
 	},
