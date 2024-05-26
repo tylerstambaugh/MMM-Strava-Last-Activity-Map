@@ -1,4 +1,4 @@
-# MMM-StravaLastActivityMap
+# MMM-Strava-Last-Activity-Map
 
 ---
 
