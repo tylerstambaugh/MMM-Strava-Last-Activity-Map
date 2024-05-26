@@ -32,7 +32,7 @@ module.exports = NodeHelper.create({
 	},
 
 	processData (data) {
-		let activityDate, distance, minutes, latitude, longitude, summaryPolyLine;
+		let name, activityDate, distance, minutes, latitude, longitude, summaryPolyLine;
 
 		if (Array.isArray(data) && data.length > 0) {
 			this.sendSocketNotification("LOG", `response data count: ${data.length}`);
@@ -43,6 +43,7 @@ module.exports = NodeHelper.create({
 			const day = String(date.getUTCDate()).padStart(2, "0");
 			const year = date.getUTCFullYear();
 
+			name = activity.name,
 			activityDate = `${month}/${day}/${year}`;
 			distance = Math.floor(activity.distance * 0.000621371); // Convert meters to miles
 			minutes = Math.floor(activity.moving_time / 60);
@@ -52,6 +53,7 @@ module.exports = NodeHelper.create({
 		}
 
 		return {
+			name,
 			activityDate,
 			distance,
 			minutes: minutes % 60,

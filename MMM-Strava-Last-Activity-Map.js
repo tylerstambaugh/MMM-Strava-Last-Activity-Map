@@ -12,7 +12,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 	googleMapsApiUrl: "",
 	accessTokenError: {},
 	apiData: {
-		map: null,
+		title: "",
+		activityDate: null,
 		distance: 0,
 		minutes: 0,
 		hours: 0,
@@ -23,16 +24,11 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
 	// Module config defaults.
 	defaults: {
-		// stravaClientId: "",
-		// stravaClientSecret: "",
-		// stravaRefreshToken: "",
-		// googleMapsApiKey: "",
 		zoom: 10,
 		mapTypeId: "roadmap",
 		styledMapType: "standard",
 		disableDefaultUI: true,
 		header: "Last Activity on Strava",
-		maxWidth: "250px",
 		initialLoadDelay: 1000,
 		retryDelay: 2500,
 		updateInterval: 60 * 15 * 1000,
@@ -77,8 +73,9 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			var detailsWrapper = document.createElement("div");
 			detailsWrapper.className = "small bright";
 			detailsWrapper.innerHTML = `
-				<p>Distance: ${this.apiData.distance} miles</p>
-				<p>Time: ${this.apiData.hours} hours ${this.apiData.minutes} minutes</p>
+				<p>${this.apiData.name} - ${this.apiData.activityDate}</p>
+				<p>Distance: <span classname="value">${this.apiData.distance} </span>miles</p>
+				<p>Time: <span classname="value">${this.apiData.hours} </span> hours  <span classname="value">${this.apiData.minutes} </span> minutes</p>
 			`;
 			wrapper.appendChild(detailsWrapper);
 		}

@@ -41,3 +41,7 @@
     padding-right: 0;
     padding-bottom: 25px;
   }
+
+  .small.bright p {
+    margin: 2px 0;  /* Adjust the values to reduce space as needed */
+}
