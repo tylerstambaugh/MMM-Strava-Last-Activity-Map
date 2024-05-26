@@ -2,46 +2,47 @@
     font-family: 'Roboto Mono', 'Lucida Console', monospace;
     font-size: large;
     color: #fc4c02;
-    width: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
 }
 
-.MMM-Strava-Last-Activity-Map .title {
+.MMM-Strava-Last-Activity-Map .activityDetails {
     font-size: medium;
     font-weight: bold;
-    color: #fc4c02;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
 }
 
-.MMM-Strava-Last-Activity-Map .label {
-    font-size: medium;
-    color: #ffffff;
-}
 
 .MMM-Strava-Last-Activity-Map .value {
+    
     font-size: medium;
     color:  #fc4c02;
 }
 
-.MMM-Strava-Last-Activity-Map .strava-icon.icon-ride {
-    background-image: url(/MMM-StravaWeekInBike/assets/images/icon-ride.svg);
-  }
+.MMM-Strava-Last-Activity-Map .loading {
+    font-size: medium;
+    color:  #fc4c02;
+}
 
-  .MMM-Strava-Last-Activity-Map .strava-icon {
-    height: 24px;
-    width: 24px;
-    background-size: cover;
-    vertical-align: top;
-    box-sizing: border-box;
-    background-repeat: no-repeat;
-    overflow: hidden;
-  }
+.MMM-Strava-Last-Activity-Map .map-container-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
 
-  .MMM-Strava-Last-Activity-Map .symbol {
-    padding-top: 0;
-    padding-left: 45px;
-    padding-right: 0;
-    padding-bottom: 25px;
-  }
-
+.MMM-Strava-Last-Activity-Map .map {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
   .small.bright p {
     margin: 2px 0;  /* Adjust the values to reduce space as needed */
 }
