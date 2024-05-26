@@ -2,7 +2,7 @@
 
 ---
 
-A simple magic mirror module for displaying the last 'X' days of riding stats.  
+A simple magic mirror module for displaying a map of the last activity.  
 ![alt stravaLastActivityMap](./public/assets/images/StravaLastActivityMapScreenshot.JPG)
 
 ## Table of contents
