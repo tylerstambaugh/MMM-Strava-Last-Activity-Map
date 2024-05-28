@@ -29,7 +29,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		styledMapType: "standard",
 		disableDefaultUI: true,
 		header: "Last Activity on Strava",
-		initialLoadDelay: 1000,
+		initialLoadDelay: 2500,
 		retryDelay: 2500,
 		updateInterval: 60 * 15 * 1000,
 		width: "250px",
@@ -140,7 +140,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		map.fitBounds(bounds);
 
 		google.maps.event.addListenerOnce(map, "bounds_changed", () => {
-			map.setZoom(map.getZoom() + 1);
+			map.setZoom(map.getZoom());
 		});
 	},
 

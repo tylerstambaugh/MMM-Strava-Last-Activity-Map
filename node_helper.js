@@ -16,7 +16,7 @@ module.exports = NodeHelper.create({
 		try {
 			const url = `${payload.tokenUrl}client_id=${payload.clientId}&client_secret=${payload.clientSecret}&refresh_token=${payload.refreshToken}&grant_type=refresh_token`;
 			const response = await axios.post(url);
-			const filePath = path.join(__dirname, "access_token.json");
+			const filePath = path.join(__dirname, "..", "strava_access_token.json");
 
 			try {
 				fs.writeFileSync(filePath, JSON.stringify(response.data));
@@ -65,7 +65,7 @@ module.exports = NodeHelper.create({
 	},
 
 	async getStravaData (payload) {
-		const filePath = path.join(__dirname, "access_token.json");
+		const filePath = path.join(__dirname, "..", "strava_access_token.json");
 
 		try {
 			if (fs.existsSync(filePath)) {
@@ -90,7 +90,15 @@ module.exports = NodeHelper.create({
 			const processedData = this.processData(response.data);
 			this.sendSocketNotification("STRAVA_DATA_RESULT", processedData);
 		} catch (error) {
-			this.sendSocketNotification("LOG", `Error fetching data from Strava API: ${error}`);
+			if (error.response && error.response.status === 401) {
+				// Unauthorized error, refresh the access token and retry
+				this.sendSocketNotification("LOG", "Access token expired, fetching new token.");
+				await this.getAccessToken(payload);
+				// Retry fetching Strava data after refreshing token
+				await this.getStravaData(payload);
+			} else {
+				this.sendSocketNotification("LOG", `Error fetching data from Strava API: ${error}`);
+			}
 		}
 	},
 

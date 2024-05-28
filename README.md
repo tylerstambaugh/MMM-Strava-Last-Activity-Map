@@ -20,6 +20,9 @@ A simple magic mirror module for displaying a map of the last activity.
 
 -You'll need to get a Google Maps API key. Follow [thesee instructions](https://developers.google.com/maps/documentation/javascript/adding-a-google-map#key)
 
+- If the module does not appear to work, check the console by running your MM with dev tools (npm start dev).
+
+- Note: The access token and refresh tokens are kept in a file in the directory above the module. This is for the case where you are running both of my Strava MM modules, they'll share the token data between them allowing them to stay in sync and avoid "Unauthorized" errors
 
 ## Configuration
 
@@ -41,7 +44,6 @@ A simple magic mirror module for displaying a map of the last activity.
 				initialLoadDelay: 4250,
 				retryDelay: 2500,
 				updateInterval: 60 * 15 * 1000,
-				loading: true
 			}
 		},
 ```
