@@ -78,7 +78,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 				var detailsWrapper = document.createElement("div");
 				detailsWrapper.className = "small bright activityDetails";
 				detailsWrapper.innerHTML = `
-				<p>${this.apiData.name} - ${this.apiData.activityDate}</p>
+				<p>${this.apiData.name} - <span class="value">${this.apiData.activityDate}</span></p>
 			`;
 				wrapper.appendChild(detailsWrapper);
 			}
@@ -97,7 +97,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			var detailsWrapper2 = document.createElement("div");
 			detailsWrapper2.className = "small bright activityDetails";
 			detailsWrapper2.innerHTML = `
-				<p><span class="value">${this.apiData.distance} </span>miles | <span class="value">${this.apiData.hours} </span> hours  <span class="value">${this.apiData.minutes} </span> minutes</p>
+				<p><span class="value">${this.apiData.distance} </span>miles / <span class="value">${this.apiData.hours} </span> hours  <span class="value">${this.apiData.minutes} </span> minutes</p>
 			`;
 			wrapper.appendChild(detailsWrapper2);
 
