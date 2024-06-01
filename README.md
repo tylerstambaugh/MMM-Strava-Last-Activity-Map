@@ -45,7 +45,7 @@ A simple magic mirror module for displaying a map of the last activity.
 				retryDelay: 2500,
 				updateInterval: 60 * 15 * 1000,
 			}
-		},
+		}
 ```
 
 ## Updates
