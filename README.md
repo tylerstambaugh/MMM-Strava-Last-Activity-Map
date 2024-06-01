@@ -26,7 +26,7 @@ A simple magic mirror module for displaying a map of the last activity.
 
 ## Configuration
 
-```json
+```js
 	{
 			module: "MMM-Strava-Last-Activity-Map",
 			position: "top_right",
