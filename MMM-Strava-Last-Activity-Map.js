@@ -31,13 +31,12 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		header: "Last Activity on Strava",
 		initialLoadDelay: 2500,
 		retryDelay: 2500,
-		updateInterval: 60 * 15 * 1000,
+		updateInterval: 60 * 1 * 1000,
 		width: "250px",
 		height: "250px"
 	},
 
-	init () {
-	},
+	init () {},
 
 	getHeader () {
 		return this.config.header || "Strava Last Activity Map";
@@ -45,7 +44,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
 	start () {
 		Log.info(`Starting module: ${this.name}`);
-		this.sendSocketNotification("LOG", `Starting node_helper for: ${this.name}`);
+		this.sendSocketNotification(
+			"LOG",
+			`Starting node_helper for: ${this.name}`
+		);
 
 		this.apiData = {};
 		this.scheduleUpdate();
@@ -69,7 +71,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			loadingMessage.innerHTML = "Module Loading...";
 			wrapper.appendChild(loadingMessage);
 		} else {
-			if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
+			if (
+				this.accessTokenError
+				&& Object.keys(this.accessTokenError).length > 0
+			) {
 				var errorWrapper = document.createElement("div");
 				errorWrapper.className = "small bright";
 				errorWrapper.innerHTML = `Strava API Access Token Error: ${JSON.stringify(this.accessTokenError)}`;
@@ -102,7 +107,6 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			`;
 			wrapper.appendChild(detailsWrapper2);
 
-
 			this.initializeMap();
 		}
 		return wrapper;
@@ -110,10 +114,11 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
 	initializeMap () {
 		if (typeof google === "undefined" || typeof google.maps === "undefined") {
-			setTimeout(() => { this.initializeMap(); }, 100);
+			setTimeout(() => {
+				this.initializeMap();
+			}, 100);
 			return;
 		}
-		Log.info("initialize map function:", document.getElementById("map"));
 		const map = new google.maps.Map(document.getElementById("map"), {
 			zoom: this.config.zoom,
 			center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
@@ -161,7 +166,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 				result |= (b & 0x1f) << shift;
 				shift += 5;
 			} while (b >= 0x20);
-			let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+			let dlat = result & 1 ? ~(result >> 1) : result >> 1;
 			lat += dlat;
 
 			shift = 0;
@@ -171,10 +176,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 				result |= (b & 0x1f) << shift;
 				shift += 5;
 			} while (b >= 0x20);
-			let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+			let dlng = result & 1 ? ~(result >> 1) : result >> 1;
 			lng += dlng;
 
-			points.push({ lat: (lat / 1e5), lng: (lng / 1e5) });
+			points.push({ lat: lat / 1e5, lng: lng / 1e5 });
 		}
 
 		return points;
@@ -207,20 +212,21 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		}
 		if (notification === "STRAVA_DATA_RESULT") {
 			this.apiData = payload;
-			Log.info("LAST-ACTIVITY-MAP: Strava API response data in socketNotificationReceived:", this.apiData);
+			Log.info(
+				"LAST-ACTIVITY-MAP: Strava API response data in socketNotificationReceived:",
+				this.apiData
+			);
 			this.loadGoogleMapsScript();
 			this.loading = false;
 			this.updateDom();
 		}
 	},
 
-
 	loadGoogleMapsScript () {
 		if (this.config.googleMapsApiKey === "") {
 			Log.error("MMM-Strava-Last-Activity-Map: Google Maps API key not set!");
 		} else {
 			const googleMapsScript = document.createElement("script");
-			Log.info("Google maps script:", googleMapsScript);
 			googleMapsScript.type = "text/javascript";
 			googleMapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
 			googleMapsScript.async = true;
