@@ -1,0 +1,23 @@
+{
+  "name": "mmm-strava-last-activity-map",
+  "version": "1.0.0",
+  "description": "---",
+  "main": "MMM-Strava-Last-Activity-Map.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tylerstambaugh/MMM-Strava-Last-Activity-Map.git"
+  },
+  "keywords": [],
+  "author": "Tyler Stambaugh",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tylerstambaugh/MMM-Strava-Last-Activity-Map/issues"
+  },
+  "homepage": "https://github.com/tylerstambaugh/MMM-Strava-Last-Activity-Map#readme",
+  "dependencies": {
+    "axios": "^1.12.2"
+  }
+}
