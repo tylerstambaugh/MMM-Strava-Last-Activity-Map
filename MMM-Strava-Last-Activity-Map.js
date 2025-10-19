@@ -12,6 +12,9 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
     start() {
         this.loading = true;
+        this.activity = null;
+        this.map = null;
+        this.mapInitialized = false;
         this.apiData = {};
         this.sendSocketNotification("LOG", `Starting module: ${this.name}`);
         this.scheduleUpdate();
@@ -22,12 +25,16 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         setInterval(() => this.getApiData(), this.config.updateInterval);
     },
 
-	getStyles() {
-    	return ["MMM-Strava-Last-Activity-Map.css"];
-  	},
+    getStyles() {
+        return ["MMM-Strava-Last-Activity-Map.css"];
+    },
 
     getApiData() {
-        if (!this.config.stravaClientId || !this.config.stravaClientSecret || !this.config.stravaRefreshToken) {
+        if (
+            !this.config.stravaClientId ||
+            !this.config.stravaClientSecret ||
+            !this.config.stravaRefreshToken
+        ) {
             Log.error(`${this.name}: Strava credentials missing`);
             return;
         }
@@ -64,13 +71,13 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         const wrapper = document.createElement("div");
         wrapper.className = "MMM-Strava-Last-Activity-Map wrapper";
 
-        // Handle loading state
+        // Loading
         if (this.loading) {
             wrapper.innerHTML = `<div class="loading">Module Loading...</div>`;
             return wrapper;
         }
 
-        // Handle access token error
+        // Token error
         if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
             wrapper.innerHTML = `
                 <div class="small bright activityDetails">
@@ -80,7 +87,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             return wrapper;
         }
 
-        // Main module UI
+        // Main UI
         wrapper.innerHTML = `
             <div class="activityDetails small bright">
                 <p>${this.apiData.name} - ${this.apiData.activityDate}</p>
@@ -99,10 +106,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             </div>
         `;
 
-        // Load Google Maps asynchronously and initialize
-        this.loadGoogleMapsScript(() => {
-            this.initializeMap();
-        });		
+        // Load Google Maps once, initialize or refresh map data
+        this.loadGoogleMapsScript(() => this.initializeMap());
 
         return wrapper;
     },
@@ -113,13 +118,13 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             return;
         }
 
-        // If Google Maps already loaded
+        // Already loaded
         if (window.google && window.google.maps) {
             callback();
             return;
         }
 
-        // If script tag already present, wait for it
+        // Existing script tag — wait for it
         const existing = document.getElementById("google-maps-script");
         if (existing) {
             const interval = setInterval(() => {
@@ -131,7 +136,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             return;
         }
 
-        // Create and inject script
+        // Create script
         const script = document.createElement("script");
         script.id = "google-maps-script";
         script.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}`;
@@ -146,28 +151,44 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         const mapDiv = document.getElementById("map");
         if (!mapDiv || !this.apiData || !this.apiData.latitude || !this.apiData.longitude) return;
 
-        const map = new google.maps.Map(mapDiv, {
-            zoom: this.config.zoom,
-            center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
-            mapTypeId: this.config.mapTypeId,
-            styles: this.config.styledMapType,
-            disableDefaultUI: true,
-        });
+        // Create map only once
+        if (!this.mapInitialized) {
+            this.map = new google.maps.Map(mapDiv, {
+                zoom: this.config.zoom,
+                center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
+                mapTypeId: this.config.mapTypeId,
+                styles: Array.isArray(this.config.styledMapType)
+                    ? this.config.styledMapType
+                    : undefined,
+                disableDefaultUI: true,
+            });
+            this.mapInitialized = true;
+        } else if (this.map) {
+            // Reuse existing map — just update center and route
+            this.map.setCenter({
+                lat: this.apiData.latitude,
+                lng: this.apiData.longitude,
+            });
+        }
 
+        // Draw activity route if present
         const decodedPath = this.decodePolyline(this.apiData.summaryPolyLine || "");
         if (decodedPath.length > 0) {
-            const polyline = new google.maps.Polyline({
+            if (this.polyline) {
+                this.polyline.setMap(null); // Remove old route
+            }
+            this.polyline = new google.maps.Polyline({
                 path: decodedPath,
                 geodesic: true,
                 strokeColor: "#FF0000",
                 strokeOpacity: 1.0,
                 strokeWeight: 2,
             });
-            polyline.setMap(map);
+            this.polyline.setMap(this.map);
 
             const bounds = new google.maps.LatLngBounds();
             decodedPath.forEach((point) => bounds.extend(point));
-            map.fitBounds(bounds);
+            this.map.fitBounds(bounds);
         }
     },
 
@@ -179,7 +200,9 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             lng = 0;
 
         while (index < encoded.length) {
-            let b, shift = 0, result = 0;
+            let b,
+                shift = 0,
+                result = 0;
             do {
                 b = encoded.charCodeAt(index++) - 63;
                 result |= (b & 0x1f) << shift;
