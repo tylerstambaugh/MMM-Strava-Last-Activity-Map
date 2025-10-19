@@ -52,20 +52,27 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         this.sendSocketNotification("GET_STRAVA_DATA", payload);
     },
 
-    socketNotificationReceived(notification, payload) {
-        if (notification === "STRAVA_DATA_RESULT") {
-            this.apiData = payload;
-            this.loading = false;
-            this.updateDom();
-        } else if (notification === "ACCESS_TOKEN_ERROR") {
-            this.accessTokenError = payload;
-            this.loading = false;
-            this.updateDom();
-            Log.error(`${this.name}: Access token error`, payload);
-        } else if (notification === "LOG") {
-            Log.info(`${this.name}: ${payload}`);
-        }
-    },
+	socketNotificationReceived(notification, payload) {
+		if (notification === "STRAVA_DATA_RESULT") {
+			this.apiData = payload;
+			this.loading = false;
+
+			// Don't re-render DOM — just update the map
+			if (this.mapInitialized) {
+				this.updateMap();
+			} else {
+				this.updateDom();
+			}
+		} else if (notification === "ACCESS_TOKEN_ERROR") {
+			this.accessTokenError = payload;
+			this.loading = false;
+			this.updateDom();
+			Log.error(`${this.name}: Access token error`, payload);
+		} else if (notification === "LOG") {
+			Log.info(`${this.name}: ${payload}`);
+		}
+	},
+
 
     getDom() {
         const wrapper = document.createElement("div");
@@ -86,6 +93,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             `;
             return wrapper;
         }
+
+		if (this.mapInitialized) {
+	        return wrapper;
+    	}	
 
         // Main UI
         wrapper.innerHTML = `
@@ -226,4 +237,32 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
         return points;
     },
+
+	updateMap() {
+    if (!this.map || !this.apiData) return;
+
+    const { latitude, longitude, summaryPolyLine } = this.apiData;
+
+    this.map.setCenter({ lat: latitude, lng: longitude });
+
+    const decodedPath = this.decodePolyline(summaryPolyLine || "");
+    if (decodedPath.length > 0) {
+        if (this.polyline) {
+            this.polyline.setMap(null);
+        }
+        this.polyline = new google.maps.Polyline({
+            path: decodedPath,
+            geodesic: true,
+            strokeColor: "#FF0000",
+            strokeOpacity: 1.0,
+            strokeWeight: 2,
+        });
+        this.polyline.setMap(this.map);
+
+        const bounds = new google.maps.LatLngBounds();
+        decodedPath.forEach((point) => bounds.extend(point));
+        this.map.fitBounds(bounds);
+    }
+}
+
 });

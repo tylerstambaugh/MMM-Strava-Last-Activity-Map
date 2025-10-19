@@ -140,8 +140,7 @@ async getStravaData(payload, retry = true) {
 
     socketNotificationReceived(notification, payload) {
         this.sendSocketNotification("LOG", `socketNotificationReceived: ${notification}`);
-        if (notification === "GET_STRAVA_DATA") {
-            this.sendSocketNotification("LOG", `Calling getStravaData for payload: ${JSON.stringify(payload)}`);
+        if (notification === "GET_STRAVA_DATA") {            
             this.getStravaData(payload);
         }
     }
