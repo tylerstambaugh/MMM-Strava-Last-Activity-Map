@@ -22,6 +22,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         setInterval(() => this.getApiData(), this.config.updateInterval);
     },
 
+	getStyles() {
+    	return ["MMM-Strava-Last-Activity-Map.css"];
+  	},
+
     getApiData() {
         if (!this.config.stravaClientId || !this.config.stravaClientSecret || !this.config.stravaRefreshToken) {
             Log.error(`${this.name}: Strava credentials missing`);
@@ -46,8 +50,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             this.apiData = payload;
             this.loading = false;
             this.updateDom();
-            this.loadGoogleMapsScript();
         } else if (notification === "ACCESS_TOKEN_ERROR") {
+            this.accessTokenError = payload;
             this.loading = false;
             this.updateDom();
             Log.error(`${this.name}: Access token error`, payload);
@@ -58,50 +62,91 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 
     getDom() {
         const wrapper = document.createElement("div");
-        wrapper.className = "wrapper";
+        wrapper.className = "MMM-Strava-Last-Activity-Map wrapper";
 
+        // Handle loading state
         if (this.loading) {
-            wrapper.innerHTML = "Module Loading...";
+            wrapper.innerHTML = `<div class="loading">Module Loading...</div>`;
             return wrapper;
         }
 
-        if (!this.apiData || Object.keys(this.apiData).length === 0) {
-            wrapper.innerHTML = "No activity data";
+        // Handle access token error
+        if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
+            wrapper.innerHTML = `
+                <div class="small bright activityDetails">
+                    Strava API Access Token Error: ${JSON.stringify(this.accessTokenError)}
+                </div>
+            `;
             return wrapper;
         }
 
+        // Main module UI
         wrapper.innerHTML = `
-            <div class="activityDetails">
-                <p>${this.apiData.name}</p>
-                <p>${this.apiData.activityDate}</p>
-                <p>${this.apiData.distance} miles / ${this.apiData.hours}h ${this.apiData.minutes}m</p>
+            <div class="activityDetails small bright">
+                <p>${this.apiData.name} - ${this.apiData.activityDate}</p>
             </div>
+
             <div class="map-container-wrapper">
-                <div id="map" style="width:${this.config.width};height:${this.config.height}"></div>
+                <div id="map" class="map" style="width:${this.config.width};height:${this.config.height};"></div>
+            </div>
+
+            <div class="activityDetails small bright">
+                <p>
+                    <span class="value">${this.apiData.distance}</span> miles |
+                    <span class="value">${this.apiData.hours}</span> hours
+                    <span class="value">${this.apiData.minutes}</span> minutes
+                </p>
             </div>
         `;
+
+        // Load Google Maps asynchronously and initialize
+        this.loadGoogleMapsScript(() => {
+            this.initializeMap();
+        });		
 
         return wrapper;
     },
 
-    loadGoogleMapsScript() {
-        if (!this.config.googleMapsApiKey) return;
-        if (document.getElementById("google-maps-script")) return;
+    loadGoogleMapsScript(callback) {
+        if (!this.config.googleMapsApiKey) {
+            Log.error(`${this.name}: Missing Google Maps API key.`);
+            return;
+        }
 
+        // If Google Maps already loaded
+        if (window.google && window.google.maps) {
+            callback();
+            return;
+        }
+
+        // If script tag already present, wait for it
+        const existing = document.getElementById("google-maps-script");
+        if (existing) {
+            const interval = setInterval(() => {
+                if (window.google && window.google.maps) {
+                    clearInterval(interval);
+                    callback();
+                }
+            }, 200);
+            return;
+        }
+
+        // Create and inject script
         const script = document.createElement("script");
         script.id = "google-maps-script";
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}`;
         script.async = true;
         script.defer = true;
+        script.onload = callback;
 
-        window.initMap = this.initializeMap.bind(this);
         document.head.appendChild(script);
     },
 
     initializeMap() {
-        if (!this.apiData || !this.apiData.latitude || !this.apiData.longitude) return;
+        const mapDiv = document.getElementById("map");
+        if (!mapDiv || !this.apiData || !this.apiData.latitude || !this.apiData.longitude) return;
 
-        const map = new google.maps.Map(document.getElementById("map"), {
+        const map = new google.maps.Map(mapDiv, {
             zoom: this.config.zoom,
             center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
             mapTypeId: this.config.mapTypeId,
@@ -109,7 +154,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
             disableDefaultUI: true,
         });
 
-        const decodedPath = this.decodePolyline(this.apiData.summaryPolyLine);
+        const decodedPath = this.decodePolyline(this.apiData.summaryPolyLine || "");
         if (decodedPath.length > 0) {
             const polyline = new google.maps.Polyline({
                 path: decodedPath,
@@ -127,6 +172,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
     },
 
     decodePolyline(encoded) {
+        if (!encoded) return [];
         let points = [];
         let index = 0,
             lat = 0,
