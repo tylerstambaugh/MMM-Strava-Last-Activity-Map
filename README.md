@@ -54,4 +54,5 @@ I will likely continue to update the module. When you see that an update is avai
 
 1. Open the command prompt and change to directory \MagicMirror\modules\MMM-Strava-Last-Activity-Map\
 2. Run command `git pull`
-3. Restart the Magic Mirror
+3. Run command `npm install`
+4. Restart the Magic Mirror
