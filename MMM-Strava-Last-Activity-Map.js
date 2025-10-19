@@ -1,242 +1,160 @@
-/* MagicMirror²
- * Module: MMM-Strava-Last-Activity-Map
- *
- * By Tyler Stambaugh
- */
-
-/* global google */
-
 Module.register("MMM-Strava-Last-Activity-Map", {
-	baseUrl: "https://www.strava.com/api/v3/",
-	tokenUrl: "https://www.strava.com/oauth/token?",
-	accessTokenError: {},
-	apiData: {
-		title: "",
-		activityDate: null,
-		distance: 0,
-		minutes: 0,
-		hours: 0,
-		latitude: -25.344,
-		longitude: 131.031,
-		summaryPolyLine: ""
-	},
-	loading: true,
+    defaults: {
+        updateInterval: 60 * 1000,
+        googleMapsApiKey: "",
+        zoom: 10,
+        mapTypeId: "roadmap",
+        styledMapType: "standard",
+        width: "250px",
+        height: "250px",
+        header: "Last Activity on Strava",
+    },
 
-	// Module config defaults.
-	defaults: {
-		zoom: 10,
-		mapTypeId: "roadmap",
-		styledMapType: "standard",
-		disableDefaultUI: true,
-		header: "Last Activity on Strava",
-		initialLoadDelay: 2500,
-		retryDelay: 2500,
-		updateInterval: 60 * 1 * 1000,
-		width: "250px",
-		height: "250px"
-	},
+    start() {
+        this.loading = true;
+        this.apiData = {};
+        this.sendSocketNotification("LOG", `Starting module: ${this.name}`);
+        this.scheduleUpdate();
+    },
 
-	init () {},
+    scheduleUpdate() {
+        this.getApiData();
+        setInterval(() => this.getApiData(), this.config.updateInterval);
+    },
 
-	getHeader () {
-		return this.config.header || "Strava Last Activity Map";
-	},
+    getApiData() {
+        if (!this.config.stravaClientId || !this.config.stravaClientSecret || !this.config.stravaRefreshToken) {
+            Log.error(`${this.name}: Strava credentials missing`);
+            return;
+        }
 
-	start () {
-		Log.info(`Starting module: ${this.name}`);
-		this.sendSocketNotification(
-			"LOG",
-			`Starting node_helper for: ${this.name}`
-		);
+        const payload = {
+            url: "https://www.strava.com/api/v3/",
+            tokenUrl: "https://www.strava.com/oauth/token?",
+            clientId: this.config.stravaClientId,
+            clientSecret: this.config.stravaClientSecret,
+            refreshToken: this.config.stravaRefreshToken,
+            after: Math.floor(Date.now() / 1000 - 10 * 24 * 60 * 60),
+            before: Math.floor(Date.now() / 1000 - 2 * 60 * 60),
+        };
 
-		this.apiData = {};
-		this.scheduleUpdate();
-	},
+        this.sendSocketNotification("GET_STRAVA_DATA", payload);
+    },
 
-	scheduleUpdate () {
-		setInterval(() => {
-			this.getApiData();
-		}, this.config.updateInterval);
-		this.getApiData();
-	},
+    socketNotificationReceived(notification, payload) {
+        if (notification === "STRAVA_DATA_RESULT") {
+            this.apiData = payload;
+            this.loading = false;
+            this.updateDom();
+            this.loadGoogleMapsScript();
+        } else if (notification === "ACCESS_TOKEN_ERROR") {
+            this.loading = false;
+            this.updateDom();
+            Log.error(`${this.name}: Access token error`, payload);
+        } else if (notification === "LOG") {
+            Log.info(`${this.name}: ${payload}`);
+        }
+    },
 
-	notificationReceived () {},
-	getDom () {
-		var wrapper = document.createElement("div");
-		wrapper.className = "wrapper";
+    getDom() {
+        const wrapper = document.createElement("div");
+        wrapper.className = "wrapper";
 
-		if (this.loading) {
-			var loadingMessage = document.createElement("div");
-			loadingMessage.className = "loading";
-			loadingMessage.innerHTML = "Module Loading...";
-			wrapper.appendChild(loadingMessage);
-		} else {
-			if (
-				this.accessTokenError
-				&& Object.keys(this.accessTokenError).length > 0
-			) {
-				var errorWrapper = document.createElement("div");
-				errorWrapper.className = "small bright";
-				errorWrapper.innerHTML = `Strava API Access Token Error: ${JSON.stringify(this.accessTokenError)}`;
-				wrapper.appendChild(errorWrapper);
-			} else {
-				var detailsWrapper = document.createElement("div");
-				detailsWrapper.className = "small bright activityDetails";
-				detailsWrapper.innerHTML = `
-				<p>${this.apiData.name}</p> 
-				<p class="value">${this.apiData.activityDate}</p>
-			`;
-				wrapper.appendChild(detailsWrapper);
-			}
-			var mapContainerWrapper = document.createElement("div");
-			mapContainerWrapper.className = "map-container-wrapper";
+        if (this.loading) {
+            wrapper.innerHTML = "Module Loading...";
+            return wrapper;
+        }
 
-			var mapContainer = document.createElement("div");
-			mapContainer.className = "map";
-			mapContainer.setAttribute("id", "map");
-			mapContainer.style.height = `${this.config.height}`;
-			mapContainer.style.width = `${this.config.width}`;
+        if (!this.apiData || Object.keys(this.apiData).length === 0) {
+            wrapper.innerHTML = "No activity data";
+            return wrapper;
+        }
 
-			mapContainerWrapper.appendChild(mapContainer);
-			wrapper.appendChild(mapContainerWrapper);
+        wrapper.innerHTML = `
+            <div class="activityDetails">
+                <p>${this.apiData.name}</p>
+                <p>${this.apiData.activityDate}</p>
+                <p>${this.apiData.distance} miles / ${this.apiData.hours}h ${this.apiData.minutes}m</p>
+            </div>
+            <div class="map-container-wrapper">
+                <div id="map" style="width:${this.config.width};height:${this.config.height}"></div>
+            </div>
+        `;
 
-			var detailsWrapper2 = document.createElement("div");
-			detailsWrapper2.className = "small bright activityDetails";
-			detailsWrapper2.innerHTML = `
-				<p><span class="value">${this.apiData.distance} </span>miles / <span class="value">${this.apiData.hours} </span> hours  <span class="value">${this.apiData.minutes} </span> minutes</p>
-			`;
-			wrapper.appendChild(detailsWrapper2);
+        return wrapper;
+    },
 
-			this.initializeMap();
-		}
-		return wrapper;
-	},
+    loadGoogleMapsScript() {
+        if (!this.config.googleMapsApiKey) return;
+        if (document.getElementById("google-maps-script")) return;
 
-	initializeMap () {
-		if (typeof google === "undefined" || typeof google.maps === "undefined") {
-			setTimeout(() => {
-				this.initializeMap();
-			}, 100);
-			return;
-		}
-		const map = new google.maps.Map(document.getElementById("map"), {
-			zoom: this.config.zoom,
-			center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
-			mapTypeId: this.config.mapTypeId,
-			styles: this.styledMapType,
-			disableDefaultUI: this.config.disableDefaultUI,
-			backgroundColor: this.config.backgroundColor
-		});
+        const script = document.createElement("script");
+        script.id = "google-maps-script";
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
+        script.async = true;
+        script.defer = true;
 
-		const decodedPath = this.decodePolyline(this.apiData.summaryPolyLine);
-		const polyline = new google.maps.Polyline({
-			path: decodedPath,
-			geodesic: true,
-			strokeColor: "#FF0000",
-			strokeOpacity: 1.0,
-			strokeWeight: 2
-		});
-		polyline.setMap(map);
+        window.initMap = this.initializeMap.bind(this);
+        document.head.appendChild(script);
+    },
 
-		const bounds = new google.maps.LatLngBounds();
-		decodedPath.forEach((point) => {
-			bounds.extend(new google.maps.LatLng(point.lat, point.lng));
-		});
+    initializeMap() {
+        if (!this.apiData || !this.apiData.latitude || !this.apiData.longitude) return;
 
-		map.fitBounds(bounds);
+        const map = new google.maps.Map(document.getElementById("map"), {
+            zoom: this.config.zoom,
+            center: { lat: this.apiData.latitude, lng: this.apiData.longitude },
+            mapTypeId: this.config.mapTypeId,
+            styles: this.config.styledMapType,
+            disableDefaultUI: true,
+        });
 
-		google.maps.event.addListenerOnce(map, "bounds_changed", () => {
-			map.setZoom(map.getZoom());
-		});
-	},
+        const decodedPath = this.decodePolyline(this.apiData.summaryPolyLine);
+        if (decodedPath.length > 0) {
+            const polyline = new google.maps.Polyline({
+                path: decodedPath,
+                geodesic: true,
+                strokeColor: "#FF0000",
+                strokeOpacity: 1.0,
+                strokeWeight: 2,
+            });
+            polyline.setMap(map);
 
-	decodePolyline (encoded) {
-		let points = [];
-		let index = 0,
-			len = encoded.length;
-		let lat = 0,
-			lng = 0;
+            const bounds = new google.maps.LatLngBounds();
+            decodedPath.forEach((point) => bounds.extend(point));
+            map.fitBounds(bounds);
+        }
+    },
 
-		while (index < len) {
-			let b,
-				shift = 0,
-				result = 0;
-			do {
-				b = encoded.charAt(index++).charCodeAt(0) - 63;
-				result |= (b & 0x1f) << shift;
-				shift += 5;
-			} while (b >= 0x20);
-			let dlat = result & 1 ? ~(result >> 1) : result >> 1;
-			lat += dlat;
+    decodePolyline(encoded) {
+        let points = [];
+        let index = 0,
+            lat = 0,
+            lng = 0;
 
-			shift = 0;
-			result = 0;
-			do {
-				b = encoded.charAt(index++).charCodeAt(0) - 63;
-				result |= (b & 0x1f) << shift;
-				shift += 5;
-			} while (b >= 0x20);
-			let dlng = result & 1 ? ~(result >> 1) : result >> 1;
-			lng += dlng;
+        while (index < encoded.length) {
+            let b, shift = 0, result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+            lat += dlat;
 
-			points.push({ lat: lat / 1e5, lng: lng / 1e5 });
-		}
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+            lng += dlng;
 
-		return points;
-	},
+            points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+        }
 
-	getApiData () {
-		let payload = {
-			url: this.baseUrl,
-			tokenUrl: this.tokenUrl,
-			clientId: this.config.stravaClientId,
-			clientSecret: this.config.stravaClientSecret,
-			refreshToken: this.config.stravaRefreshToken,
-			after: Math.floor(
-				new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).getTime() / 1000
-			),
-			before: Math.floor(
-				new Date(Date.now() - 1 * 2 * 60 * 60 * 1000).getTime() / 1000
-			)
-		};
-		this.sendSocketNotification("GET_STRAVA_DATA", payload);
-	},
-
-	socketNotificationReceived (notification, payload) {
-		if (notification === "LOG") {
-			Log.info("STRAVA-LAST-ACTIVITY-MAP NodeHelper log:", payload);
-		}
-		if (notification === "ACCESS_TOKEN_ERROR") {
-			this.accessTokenError = payload;
-			this.updateDom();
-		}
-		if (notification === "STRAVA_DATA_RESULT") {
-			this.apiData = payload;
-			Log.info(
-				"LAST-ACTIVITY-MAP: Strava API response data in socketNotificationReceived:",
-				this.apiData
-			);
-			this.loadGoogleMapsScript();
-			this.loading = false;
-			this.updateDom();
-		}
-	},
-
-	loadGoogleMapsScript () {
-		if (this.config.googleMapsApiKey === "") {
-			Log.error("MMM-Strava-Last-Activity-Map: Google Maps API key not set!");
-		} else {
-			const googleMapsScript = document.createElement("script");
-			googleMapsScript.type = "text/javascript";
-			googleMapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${this.config.googleMapsApiKey}&callback=initMap`;
-			googleMapsScript.async = true;
-			googleMapsScript.defer = true;
-			window.initMap = this.initializeMap.bind(this);
-			document.head.appendChild(googleMapsScript);
-		}
-	},
-
-	getStyles () {
-		return ["MMM-Strava-Last-Activity-Map.css"];
-	}
+        return points;
+    },
 });
