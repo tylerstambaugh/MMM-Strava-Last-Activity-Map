@@ -29,6 +29,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         return ["MMM-Strava-Last-Activity-Map.css"];
     },
 
+		getHeader () {
+		return this.config.header || "Last Activity on Strava";
+	},
+
     getApiData() {
         if (
             !this.config.stravaClientId ||
