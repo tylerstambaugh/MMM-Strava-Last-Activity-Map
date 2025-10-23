@@ -105,7 +105,8 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         // Main UI
         wrapper.innerHTML = `
             <div class="activityDetails small bright">
-                <p>${this.apiData.name} - ${this.apiData.activityDate}</p>
+                <p>${this.apiData.name}</p>
+                <p>${this.apiData.activityDate}</p>
             </div>
 
             <div class="map-container-wrapper">
