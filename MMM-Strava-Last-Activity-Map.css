@@ -3,18 +3,16 @@
     font-size: large;
     color: #fc4c02 !important;
     display: flex;
-    flex-direction: column;
-    justify-content: end;
-    text-align: center;
+    flex-direction: column;    
 }
 
 .MMM-Strava-Last-Activity-Map .activityDetails {
 	font-size: medium;
 	font-weight: bold;
 	color: #fc4c02 !important;
-	/* justify-content: flex-end; */
-	max-width: 350px;
-	text-align: center!important;
+    width: 100%;
+	/* max-width: 360px; */
+    text-align: center;
 }
 
 .MMM-Strava-Last-Activity-Map .value {    
