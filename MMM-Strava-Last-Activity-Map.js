@@ -1,3 +1,4 @@
+
 Module.register("MMM-Strava-Last-Activity-Map", {
     defaults: {
         updateInterval: 60 * 1000,
@@ -62,11 +63,13 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 			this.loading = false;
 
 			// Don't re-render DOM — just update the map
-			if (this.mapInitialized) {
-				this.updateMap();
-			} else {
-				this.updateDom();
-			}
+			// if (this.mapInitialized) {
+			// 	this.updateMap();
+			// } else {
+			// 	this.updateDom();
+			// }
+            this.updateMap();
+            this.updateDom();
 		} else if (notification === "ACCESS_TOKEN_ERROR") {
 			this.accessTokenError = payload;
 			this.loading = false;
@@ -268,6 +271,4 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         decodedPath.forEach((point) => bounds.extend(point));
         this.map.fitBounds(bounds);
     }
-}
-
-});
+}});
