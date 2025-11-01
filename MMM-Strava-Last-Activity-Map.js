@@ -57,79 +57,87 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         this.sendSocketNotification("GET_STRAVA_DATA", payload);
     },
 
-	socketNotificationReceived(notification, payload) {
-		if (notification === "STRAVA_DATA_RESULT") {
-			this.apiData = payload;
-			this.loading = false;
+    socketNotificationReceived(notification, payload) {
+        if (notification === "STRAVA_DATA_RESULT") {
+            this.apiData = payload;
+            this.loading = false;
 
-			// Don't re-render DOM — just update the map
-			// if (this.mapInitialized) {
-			// 	this.updateMap();
-			// } else {
-			// 	this.updateDom();
-			// }
+            // Refresh map and update info
             this.updateMap();
+            this.updateDom(); // Safe now — map container stays alive
+        } else if (notification === "ACCESS_TOKEN_ERROR") {
+            this.accessTokenError = payload;
+            this.loading = false;
             this.updateDom();
-		} else if (notification === "ACCESS_TOKEN_ERROR") {
-			this.accessTokenError = payload;
-			this.loading = false;
-			this.updateDom();
-			Log.error(`${this.name}: Access token error`, payload);
-		} else if (notification === "LOG") {
-			Log.info(`${this.name}: ${payload}`);
-		}
-	},
-
-
-    getDom() {
-        const wrapper = document.createElement("div");
-        wrapper.className = "MMM-Strava-Last-Activity-Map wrapper";
-
-        // Loading
-        if (this.loading) {
-            wrapper.innerHTML = `<div class="loading">Module Loading...</div>`;
-            return wrapper;
+            Log.error(`${this.name}: Access token error`, payload);
+        } else if (notification === "LOG") {
+            Log.info(`${this.name}: ${payload}`);
         }
+    },
 
-        // Token error
-        if (this.accessTokenError && Object.keys(this.accessTokenError).length > 0) {
-            wrapper.innerHTML = `
-                <div class="small bright activityDetails">
-                    Strava API Access Token Error: ${JSON.stringify(this.accessTokenError)}
-                </div>
-            `;
-            return wrapper;
-        }
+getDom() {
+    // Create persistent wrapper structure only once
+    if (!this.wrapper) {
+        this.wrapper = document.createElement("div");
+        this.wrapper.className = "MMM-Strava-Last-Activity-Map wrapper";
 
-		if (this.mapInitialized) {
-	        return wrapper;
-    	}	
+        // Top info
+        const topInfo = document.createElement("div");
+        topInfo.className = "activityDetails top-info small bright";
+        this.wrapper.appendChild(topInfo);
 
-        // Main UI
-        wrapper.innerHTML = `
-            <div class="activityDetails small bright">
-                <p>${this.apiData.name}</p>
-                <p>${this.apiData.activityDate}</p>
-            </div>
+        // Map container
+        const mapWrapper = document.createElement("div");
+        mapWrapper.className = "map-container-wrapper";
+        const mapDiv = document.createElement("div");
+        mapDiv.id = "map";
+        mapDiv.className = "map";
+        mapDiv.style.width = this.config.width;
+        mapDiv.style.height = this.config.height;
+        mapWrapper.appendChild(mapDiv);
+        this.wrapper.appendChild(mapWrapper);
 
-            <div class="map-container-wrapper">
-                <div id="map" class="map" style="width:${this.config.width};height:${this.config.height};"></div>
-            </div>
+        // Bottom info
+        const bottomInfo = document.createElement("div");
+        bottomInfo.className = "activityDetails bottom-info small bright";
+        this.wrapper.appendChild(bottomInfo);
+    }
 
-            <div class="activityDetails small bright">
-                <p>
-                    <span class="value">${this.apiData.distance}</span> miles |
-                    <span class="value">${this.apiData.hours}</span> hours
-                    <span class="value">${this.apiData.minutes}</span> minutes
-                </p>
-            </div>
+    const topInfo = this.wrapper.querySelector(".top-info");
+    const bottomInfo = this.wrapper.querySelector(".bottom-info");
+
+    if (this.loading) {
+        topInfo.innerHTML = `<div class="loading">Module Loading...</div>`;
+        bottomInfo.innerHTML = "";
+    } else if (this.accessTokenError) {
+        topInfo.innerHTML = `<div class="small bright">Strava API Access Token Error</div>`;
+        bottomInfo.innerHTML = `<div class="xsmall">${JSON.stringify(this.accessTokenError)}</div>`;
+    } else if (this.apiData && this.apiData.name) {
+        topInfo.innerHTML = `
+            <p>${this.apiData.name}</p>
+            <p>${this.apiData.activityDate}</p>
         `;
 
-        // Load Google Maps once, initialize or refresh map data
-        this.loadGoogleMapsScript(() => this.initializeMap());
+        bottomInfo.innerHTML = `            
+            <p>
+                <span class="value">${this.apiData.distance}</span> miles |
+                <span class="value">${this.apiData.hours}</span> hours
+                <span class="value">${this.apiData.minutes}</span> minutes
+            </p>
+        `;
+    } else {
+        topInfo.innerHTML = `<div class="loading">Awaiting data...</div>`;
+        bottomInfo.innerHTML = "";
+    }
 
-        return wrapper;
-    },
+    // Initialize Google Map only once
+    if (!this.mapInitialized) {
+        this.loadGoogleMapsScript(() => this.initializeMap());
+    }
+
+    return this.wrapper;
+},
+
 
     loadGoogleMapsScript(callback) {
         if (!this.config.googleMapsApiKey) {
