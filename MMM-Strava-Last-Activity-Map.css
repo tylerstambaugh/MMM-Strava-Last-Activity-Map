@@ -11,7 +11,11 @@
 	font-weight: bold;
 	color: #fc4c02 !important;
     width: 100%;
-	/* max-width: 360px; */
+    max-width: 250px; /* overridden inline by the textMaxWidth / width config */
+    align-self: center;
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
     text-align: center;
 }
 
