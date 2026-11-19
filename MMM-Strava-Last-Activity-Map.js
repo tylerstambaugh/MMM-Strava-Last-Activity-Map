@@ -8,6 +8,7 @@ Module.register("MMM-Strava-Last-Activity-Map", {
         styledMapType: "standard",
         width: "250px",
         height: "250px",
+        textMaxWidth: null, // max width of the title/details text; defaults to the map width
         header: "Last Activity on Strava",
     },
 
@@ -33,6 +34,10 @@ Module.register("MMM-Strava-Last-Activity-Map", {
 		getHeader () {
 		return this.config.header || "Last Activity on Strava";
 	},
+
+    getTextMaxWidth() {
+        return this.config.textMaxWidth || this.config.width || this.defaults.width;
+    },
 
     getApiData() {
         if (
@@ -84,6 +89,7 @@ getDom() {
         // Top info
         const topInfo = document.createElement("div");
         topInfo.className = "activityDetails top-info small bright";
+        topInfo.style.maxWidth = this.getTextMaxWidth();
         this.wrapper.appendChild(topInfo);
 
         // Map container
@@ -100,6 +106,7 @@ getDom() {
         // Bottom info
         const bottomInfo = document.createElement("div");
         bottomInfo.className = "activityDetails bottom-info small bright";
+        bottomInfo.style.maxWidth = this.getTextMaxWidth();
         this.wrapper.appendChild(bottomInfo);
     }
 

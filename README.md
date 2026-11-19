@@ -63,6 +63,7 @@ This module manages its own Strava access token automatically — you do not nee
 				header: "Last Activity on Strava",
 				height: "300px",
 				width: "300px",
+				textMaxWidth: "300px", // optional; max width of the activity title/details text. Defaults to the map width
 				initialLoadDelay: 4250,
 				retryDelay: 2500,
 				updateInterval: 60 * 15 * 1000,
